@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Document Translator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <main class="app-container">
+    <header class="app-header">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>DocTranslate</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div id="user-info" style="font-size: 0.875rem; color: #64748b;">
+          <span id="user-status">Checking authentication...</span>
+        </div>
+        <a href="#" id="back-to-nexus" style="color: #3b82f6; text-decoration: none; font-size: 0.875rem;">
+          ← Logout
+        </a>
+      </div>
+      <p class="subtitle">Seamless document translation.</p>
+    </header>
+
+    <div class="grid-layout">
+      <section class="card upload-section">
+        <div class="card-header">
+          <h2>Upload</h2>
+        </div>
+        <div class="upload-area" id="drop-zone">
+          <div class="upload-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <p class="upload-text">Drag files here or click to browse</p>
+          <p class="upload-subtext">Supports .pptx, .docx, .xlsx</p>
+          <input type="file" id="file-input" accept=".pptx,.docx,.xlsx" multiple />
+        </div>
+        <div class="file-queue hidden" id="file-info">
+          <ul id="file-queue"></ul>
+        </div>
+      </section>
+
+      <section class="card settings-section">
+        <div class="card-header">
+          <h2>Settings</h2>
+        </div>
+        <form id="translation-form">
+          <div class="form-group">
+            <label for="source-lang">Source Language</label>
+            <div class="select-wrapper">
+              <select id="source-lang" name="source_lang"></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="target-lang">Target Language</label>
+            <div class="select-wrapper">
+              <select id="target-lang" name="target_lang" required></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="font-name">Font (Optional)</label>
+            <input type="text" id="font-name" name="font" list="font-options" placeholder="Default"
+              class="text-input" />
+            <datalist id="font-options">
+              <option value="Arial" label="Arial"></option>
+              <option value="Calibri" label="Calibri"></option>
+              <option value="Times New Roman" label="Times New Roman"></option>
+              <option value="Helvetica" label="Helvetica"></option>
+              <option value="Segoe UI" label="Segoe UI"></option>
+              <option value="SimSun" label="SimSun"></option>
+              <option value="SimHei" label="SimHei"></option>
+              <option value="Microsoft YaHei" label="Microsoft YaHei"></option>
+              <option value="PingFang SC" label="PingFang SC"></option>
+              <option value="Songti SC" label="Songti SC"></option>
+              <option value="Noto Sans CJK SC" label="Noto Sans CJK SC"></option>
+            </datalist>
+          </div>
+          <button type="submit" class="btn-primary" id="translate-btn">
+            Start Translation
+          </button>
+        </form>
+      </section>
+    </div>
+
+    <section class="card status-section" id="status-card">
+      <div class="status-content">
+        <div id="status-message">Ready to translate.</div>
+        <div class="progress hidden" id="progress-indicator">
+          <div class="spinner"></div>
+          <span id="progress-text">Processing...</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card downloads-section hidden" id="download-card">
+      <div class="card-header">
+        <h2>Completed</h2>
+      </div>
+      <ul class="download-list" id="download-list"></ul>
+      <div class="failed-summary hidden" id="failed-summary"></div>
+    </section>
+  </main>
+
+  <script src="script.js" defer></script>
+</body>
+
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - Document Translator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: var(--bg-body);
+    }
+    
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      box-shadow: var(--shadow-md);
+    }
+    
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    .login-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: var(--primary-text);
+      margin-bottom: 1rem;
+    }
+    
+    .login-header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+      color: var(--text-primary);
+    }
+    
+    .login-header p {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+    
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .form-group label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      background: var(--bg-body);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-sizing: border-box;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .form-group input::placeholder {
+      color: var(--text-tertiary);
+    }
+    
+    .error-message {
+      display: none;
+      padding: 0.75rem 1rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: var(--radius-md);
+      color: var(--accent-error);
+      font-size: 0.875rem;
+    }
+    
+    .error-message.show {
+      display: block;
+    }
+    
+    .login-button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      color: var(--primary-text);
+      background: var(--primary);
+      border: none;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+    
+    .login-button:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+    
+    .login-button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    
+    .login-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .login-footer {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <h1>DocTranslate</h1>
+        <p>Sign in to continue</p>
+      </div>
+      
+      <form class="login-form" id="login-form">
+        <div class="error-message" id="error-message"></div>
+        
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="username" />
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password" />
+        </div>
+        
+        <button type="submit" class="login-button" id="login-button">
+          Sign In
+        </button>
+      </form>
+      
+      <div class="login-footer">
+        Document Translation Service
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const loginForm = document.getElementById('login-form');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const loginButton = document.getElementById('login-button');
+    const errorMessage = document.getElementById('error-message');
+
+    // Check if already authenticated (silently handle failures)
+    fetch('/api/auth/check')
+      .then(response => response.json())
+      .then(data => {
+        if (data && data.authenticated) {
+          window.location.href = '/';
+        }
+        // Not authenticated - stay on login page (this is expected)
+      })
+      .catch(() => {
+        // Network error - silently ignore, user can still login
+      });
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      
+      if (!username || !password) {
+        showError('Please enter both username and password');
+        return;
+      }
+      
+      loginButton.disabled = true;
+      loginButton.textContent = 'Signing in...';
+      hideError();
+      
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username, password }),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          // Redirect to main app
+          window.location.href = '/';
+        } else {
+          showError(data.error || 'Invalid username or password');
+          loginButton.disabled = false;
+          loginButton.textContent = 'Sign In';
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        showError('Connection error. Please try again.');
+        loginButton.disabled = false;
+        loginButton.textContent = 'Sign In';
+      }
+    });
+    
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('show');
+    }
+    
+    function hideError() {
+      errorMessage.classList.remove('show');
+    }
+    
+    // Allow Enter key to submit
+    [usernameInput, passwordInput].forEach(input => {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          loginForm.dispatchEvent(new Event('submit'));
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+
