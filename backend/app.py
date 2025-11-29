@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Optional
@@ -28,18 +29,73 @@ class FileRecord:
     size: int
     kind: str  # "source" or "translated"
 
+    def to_dict(self) -> dict:
+        return {
+            "file_id": self.file_id,
+            "original_name": self.original_name,
+            "stored_name": self.stored_name,
+            "path": str(self.path),
+            "size": self.size,
+            "kind": self.kind,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> FileRecord:
+        return cls(
+            file_id=data["file_id"],
+            original_name=data["original_name"],
+            stored_name=data["stored_name"],
+            path=Path(data["path"]),
+            size=data["size"],
+            kind=data["kind"],
+        )
+
 
 class FileRegistry:
-    """In-memory registry for uploaded and processed files."""
+    """Registry for uploaded and processed files, backed by disk storage."""
 
     def __init__(self) -> None:
         self._records: Dict[str, FileRecord] = {}
 
     def add(self, record: FileRecord) -> None:
         self._records[record.file_id] = record
+        self._save_to_disk(record)
 
     def get(self, file_id: str) -> Optional[FileRecord]:
-        return self._records.get(file_id)
+        if file_id in self._records:
+            return self._records[file_id]
+        
+        # Try to load from disk
+        record = self._load_from_disk(file_id)
+        if record:
+            self._records[file_id] = record
+            return record
+        return None
+
+    def _save_to_disk(self, record: FileRecord) -> None:
+        """Save record metadata to a JSON file alongside the file."""
+        # Determine where to save based on the file path parent
+        # This assumes files are in upload_folder or output_folder
+        meta_path = record.path.parent / f"{record.file_id}.json"
+        try:
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(record.to_dict(), f, indent=2)
+        except OSError as exc:
+            LOGGER.error("Failed to save metadata for %s: %s", record.file_id, exc)
+
+    def _load_from_disk(self, file_id: str) -> Optional[FileRecord]:
+        """Attempt to load record metadata from upload or output folders."""
+        # Check both upload and output folders
+        for folder in [settings.upload_folder, settings.output_folder]:
+            meta_path = folder / f"{file_id}.json"
+            if meta_path.exists():
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    return FileRecord.from_dict(data)
+                except (OSError, json.JSONDecodeError) as exc:
+                    LOGGER.error("Failed to load metadata for %s: %s", file_id, exc)
+        return None
 
 
 registry = FileRegistry()
