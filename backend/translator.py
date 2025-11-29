@@ -104,31 +104,51 @@ class OpenRouterTranslator:
         return f"[{target}] {text}"
 
     def _extract_translations(self, message: str, expected_count: int) -> List[str]:
+        candidates = []
+
+        # 1. Try parsing the whole message as JSON
         try:
             parsed = json.loads(message)
-            if isinstance(parsed, list) and (expected_count == len(parsed) or expected_count == 0):
-                return parsed
+            if isinstance(parsed, list):
+                if expected_count == 0 or len(parsed) == expected_count:
+                    return parsed
+                candidates.append(parsed)
         except json.JSONDecodeError:
             pass
 
+        # 2. Try parsing fenced code blocks
         fenced = re.search(r"```(?:json)?\s*(\[[\s\S]*?\])\s*```", message, re.DOTALL)
         if fenced:
             snippet = fenced.group(1)
             try:
                 parsed = json.loads(snippet)
-                if isinstance(parsed, list) and (expected_count == len(parsed) or expected_count == 0):
-                    return parsed
+                if isinstance(parsed, list):
+                    if expected_count == 0 or len(parsed) == expected_count:
+                        return parsed
+                    candidates.append(parsed)
             except json.JSONDecodeError:
                 LOGGER.debug("Failed to parse fenced JSON snippet.")
 
+        # 3. Try finding a JSON array in the text
         array_snippet = self._find_json_array(message)
         if array_snippet:
             try:
                 parsed = json.loads(array_snippet)
-                if isinstance(parsed, list) and (expected_count == len(parsed) or expected_count == 0):
-                    return parsed
+                if isinstance(parsed, list):
+                    if expected_count == 0 or len(parsed) == expected_count:
+                        return parsed
+                    candidates.append(parsed)
             except json.JSONDecodeError:
                 LOGGER.debug("Failed to parse matched JSON array.")
+
+        # If we found any candidates (mismatched length), return the first one
+        if candidates:
+            LOGGER.warning(
+                "Found JSON list but length mismatch (expected %s, got %s). Returning anyway.",
+                expected_count,
+                len(candidates[0])
+            )
+            return candidates[0]
 
         LOGGER.error("Unexpected response payload: %s", message)
         raise TranslationError("Could not parse translation response from OpenRouter")
