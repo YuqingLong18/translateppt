@@ -56,3 +56,6 @@ dist/
 # Other Caches (like the one you had)
 # ===================================================================
 .npm-cache/.user.ini
+
+output/
+uploads/

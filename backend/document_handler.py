@@ -47,6 +47,8 @@ class DocumentHandler:
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
+        side_by_side: bool = False,
+        original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:  # pragma: no cover - protocol
         raise NotImplementedError
 
@@ -75,12 +77,15 @@ class PowerPointHandler(DocumentHandler):
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
+        side_by_side: bool = False,
+        original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:
         presentation = Presentation(self.presentation_path)
+        original_texts = original_texts or {}
 
         for slide_index, slide in enumerate(presentation.slides):
             for shape_index, shape in enumerate(slide.shapes):
-                self._apply_to_shape(slide_index, shape_index, shape, translations)
+                self._apply_to_shape(slide_index, shape_index, shape, translations, side_by_side, original_texts)
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -118,14 +123,22 @@ class PowerPointHandler(DocumentHandler):
         shape_index: int,
         shape: BaseShape,
         translations: Dict[str, str],
+        side_by_side: bool = False,
+        original_texts: Optional[Dict[str, str]] = None,
     ) -> None:
+        original_texts = original_texts or {}
         if getattr(shape, "has_text_frame", False):
             text_frame = shape.text_frame
             for paragraph_index, paragraph in enumerate(text_frame.paragraphs):
                 element_id = self._paragraph_id(slide_index, shape_index, paragraph_index)
                 translated = translations.get(element_id)
                 if translated is not None:
-                    self._replace_ppt_paragraph(paragraph, translated)
+                    original_text = original_texts.get(element_id, paragraph.text.strip())
+                    if side_by_side:
+                        formatted_text = self._format_side_by_side(original_text, translated)
+                        self._replace_ppt_paragraph(paragraph, formatted_text, font_size_pt=16)
+                    else:
+                        self._replace_ppt_paragraph(paragraph, translated)
 
         if getattr(shape, "has_table", False):
             table = shape.table
@@ -134,24 +147,29 @@ class PowerPointHandler(DocumentHandler):
                     element_id = self._cell_id(slide_index, shape_index, row_idx, col_idx)
                     translated = translations.get(element_id)
                     if translated is not None:
-                        self._replace_ppt_cell(cell, translated)
+                        original_text = original_texts.get(element_id, cell.text.strip())
+                        if side_by_side:
+                            formatted_text = self._format_side_by_side(original_text, translated)
+                            self._replace_ppt_cell(cell, formatted_text, font_size_pt=16)
+                        else:
+                            self._replace_ppt_cell(cell, translated)
 
     @classmethod
-    def _replace_ppt_paragraph(cls, paragraph: _Paragraph, new_text: str) -> None:
+    def _replace_ppt_paragraph(cls, paragraph: _Paragraph, new_text: str, font_size_pt: Optional[int] = None) -> None:
         paragraph.clear()
         run = paragraph.add_run()
         run.text = new_text
-        cls._apply_body_text_format(paragraph, run)
+        cls._apply_body_text_format(paragraph, run, font_size_pt=font_size_pt)
 
     @classmethod
-    def _replace_ppt_cell(cls, cell: PptxCell, new_text: str) -> None:
+    def _replace_ppt_cell(cls, cell: PptxCell, new_text: str, font_size_pt: Optional[int] = None) -> None:
         text_frame = cell.text_frame
         text_frame.clear()
         paragraph = text_frame.paragraphs[0]
         paragraph.clear()
         run = paragraph.add_run()
         run.text = new_text
-        cls._apply_body_text_format(paragraph, run)
+        cls._apply_body_text_format(paragraph, run, font_size_pt=font_size_pt)
 
     @staticmethod
     def _paragraph_id(slide_index: int, shape_index: int, paragraph_index: int) -> str:
@@ -161,12 +179,17 @@ class PowerPointHandler(DocumentHandler):
     def _cell_id(slide_index: int, shape_index: int, row_index: int, col_index: int) -> str:
         return f"ppt_s{slide_index}_sh{shape_index}_c{row_index}_{col_index}"
 
+    @staticmethod
+    def _format_side_by_side(original: str, translated: str) -> str:
+        """Format text as 'original | translated' for side-by-side display."""
+        return f"{original} | {translated}"
+
     @classmethod
-    def _apply_body_text_format(cls, paragraph: _Paragraph, run) -> None:
+    def _apply_body_text_format(cls, paragraph: _Paragraph, run, font_size_pt: Optional[int] = None) -> None:
         paragraph.alignment = PP_ALIGN.LEFT
         paragraph.line_spacing = 1
         run.font.name = cls.BODY_FONT_NAME
-        run.font.size = Pt(cls.BODY_FONT_SIZE_PT)
+        run.font.size = Pt(font_size_pt if font_size_pt is not None else cls.BODY_FONT_SIZE_PT)
 
 
 class WordHandler(DocumentHandler):
@@ -200,6 +223,8 @@ class WordHandler(DocumentHandler):
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
+        side_by_side: bool = False,
+        original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:
         document = Document(self.document_path)
 
@@ -305,6 +330,8 @@ class ExcelHandler(DocumentHandler):
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
+        side_by_side: bool = False,
+        original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:
         workbook = load_workbook(self.workbook_path)
 

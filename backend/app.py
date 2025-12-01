@@ -232,6 +232,9 @@ def register_routes(app: Flask) -> None:
 
         source_lang = (payload.get("source_lang") or "").strip() or None
         font_name = (payload.get("font") or "").strip() or None
+        side_by_side = payload.get("side_by_side", False)
+        if isinstance(side_by_side, str):
+            side_by_side = side_by_side.lower() in ("true", "1", "yes")
         api_key = (payload.get("api_key") or settings.openrouter_api_key or "").strip()
         model = settings.default_model
 
@@ -262,13 +265,14 @@ def register_routes(app: Flask) -> None:
             abort(502, description=str(exc))
 
         mapping = {element.element_id: translated for element, translated in zip(elements, translated_texts)}
+        original_texts = {element.element_id: element.text for element in elements}
 
         output_id = uuid4().hex
         original_suffix = Path(record.original_name).suffix or Path(record.path).suffix
         output_filename = f"{Path(record.original_name).stem}_{target_lang}{original_suffix}"
         stored_name = f"{output_id}{original_suffix}"
         output_path = Path(app.config["OUTPUT_FOLDER"]) / stored_name
-        handler.apply_translations(mapping, output_path, font_name=font_name)
+        handler.apply_translations(mapping, output_path, font_name=font_name, side_by_side=side_by_side, original_texts=original_texts)
 
         output_record = FileRecord(
             file_id=output_id,

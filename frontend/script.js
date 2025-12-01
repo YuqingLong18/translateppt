@@ -284,11 +284,13 @@ async function uploadFile(file) {
 }
 
 async function translateFile(fileId) {
+  const sideBySideCheckbox = document.getElementById('side-by-side');
   const payload = {
     file_id: fileId,
     source_lang: sourceSelect.value,
     target_lang: targetSelect.value,
     font: fontInput.value,
+    side_by_side: sideBySideCheckbox.checked || false,
   };
 
   const response = await fetch('/translate', {
