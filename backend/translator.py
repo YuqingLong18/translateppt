@@ -51,21 +51,22 @@ class OpenRouterTranslator:
 
         endpoint = f"{self.api_base}/chat/completions"
         try:
-            response = requests.post(endpoint, json=payload, headers=headers, timeout=60)
+            response = requests.post(endpoint, json=payload, headers=headers, timeout=300)
         except requests.RequestException as exc:  # pragma: no cover - network failure
             raise TranslationError("Failed to contact OpenRouter API") from exc
 
         if response.status_code >= 400:
+            error_preview = response.text[:500] if len(response.text) > 500 else response.text
             raise TranslationError(
-                f"OpenRouter API returned {response.status_code}: {response.text}"
+                f"OpenRouter API returned {response.status_code}: {error_preview}"
             )
 
         data = response.json()
         try:
             message_content = data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError) as exc:
-            LOGGER.error("Unexpected response payload: %s", data)
-            raise TranslationError("Could not parse translation response from OpenRouter") from exc
+            LOGGER.error("Unexpected response structure: %s", data)
+            raise TranslationError("Could not parse translation response from OpenRouter - invalid response structure") from exc
 
         translations = self._extract_translations(message_content, len(texts))
         if len(translations) != len(texts):
@@ -141,16 +142,18 @@ class OpenRouterTranslator:
             except json.JSONDecodeError:
                 LOGGER.debug("Failed to parse matched JSON array.")
 
-        # If we found any candidates (mismatched length), return the first one
+        # If we found any candidates (even with mismatched length), return the first one
+        # The reconciliation logic will handle the count mismatch
         if candidates:
             LOGGER.warning(
-                "Found JSON list but length mismatch (expected %s, got %s). Returning anyway.",
+                "Translation count mismatch (expected %s, got %s). Will attempt reconciliation.",
                 expected_count,
                 len(candidates[0])
             )
             return candidates[0]
 
-        LOGGER.error("Unexpected response payload: %s", message)
+        # Only raise an error if we couldn't parse any valid JSON array at all
+        LOGGER.error("Could not parse any valid JSON array from response. Response preview: %s", message[:500])
         raise TranslationError("Could not parse translation response from OpenRouter")
 
     def _reconcile_translation_count(self, translations: List[str], original_texts: List[str]) -> List[str]:

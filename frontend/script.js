@@ -314,6 +314,10 @@ async function translateFile(fileId) {
 
   if (!response.ok) {
     const error = await parseError(response);
+    // Provide more context for common errors
+    if (response.status === 502) {
+      throw new Error(`Translation service error: ${error || 'The server encountered an error processing your request. Please try again.'}`);
+    }
     throw new Error(error || 'Translation failed');
   }
 
@@ -405,7 +409,8 @@ function formatBytes(bytes) {
 async function parseError(response) {
   try {
     const data = await response.json();
-    return data?.message || data?.error || response.statusText;
+    // Flask abort() uses 'description' field for error messages
+    return data?.description || data?.message || data?.error || response.statusText;
   } catch (error) {
     return response.statusText;
   }
