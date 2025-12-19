@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Document Translator</title>
+  <title data-i18n="title.main">DocTranslate 文档翻译</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,21 +25,26 @@
         </svg>
         <span>DocTranslate</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 1rem;">
-        <div id="user-info" style="font-size: 0.875rem; color: #64748b;">
-          <span id="user-status">Checking authentication...</span>
+      <div class="header-actions">
+        <div id="user-info">
+          <span id="user-status" data-i18n="auth.checking">正在检查登录状态...</span>
         </div>
-        <a href="#" id="back-to-nexus" style="color: #3b82f6; text-decoration: none; font-size: 0.875rem;">
-          ← Logout
+        <div class="language-toggle" data-language-toggle>
+          <button type="button" data-language-option="zh">中文</button>
+          <span class="toggle-divider">/</span>
+          <button type="button" data-language-option="en">English</button>
+        </div>
+        <a href="#" id="back-to-nexus" data-i18n="auth.logout">
+          ← 退出登录
         </a>
       </div>
-      <p class="subtitle">Seamless document translation.</p>
+      <p class="subtitle" data-i18n="subtitle.main">无缝文档翻译服务。</p>
     </header>
 
     <div class="grid-layout">
       <section class="card upload-section">
         <div class="card-header">
-          <h2>Upload</h2>
+          <h2 data-i18n="upload.heading">上传</h2>
         </div>
         <div class="upload-area" id="drop-zone">
           <div class="upload-icon">
@@ -50,8 +55,8 @@
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
           </div>
-          <p class="upload-text">Drag files here or click to browse</p>
-          <p class="upload-subtext">Supports .pptx, .docx, .xlsx</p>
+          <p class="upload-text" data-i18n="upload.cta">拖拽文件到此或点击选择</p>
+          <p class="upload-subtext" data-i18n="upload.supported">支持 .pptx, .docx, .xlsx</p>
           <input type="file" id="file-input" accept=".pptx,.docx,.xlsx" multiple />
         </div>
         <div class="file-queue hidden" id="file-info">
@@ -61,24 +66,25 @@
 
       <section class="card settings-section">
         <div class="card-header">
-          <h2>Settings</h2>
+          <h2 data-i18n="settings.heading">设置</h2>
         </div>
         <form id="translation-form">
           <div class="form-group">
-            <label for="source-lang">Source Language</label>
+            <label for="source-lang" data-i18n="form.source">源语言</label>
             <div class="select-wrapper">
               <select id="source-lang" name="source_lang"></select>
             </div>
           </div>
           <div class="form-group">
-            <label for="target-lang">Target Language</label>
+            <label for="target-lang" data-i18n="form.target">目标语言</label>
             <div class="select-wrapper">
               <select id="target-lang" name="target_lang" required></select>
             </div>
           </div>
           <div class="form-group">
-            <label for="font-name">Font (Optional)</label>
-            <input type="text" id="font-name" name="font" list="font-options" placeholder="Default"
+            <label for="font-name" data-i18n="form.font">字体（可选）</label>
+            <input type="text" id="font-name" name="font" list="font-options" placeholder="默认"
+              data-i18n="form.fontPlaceholder" data-i18n-attr="placeholder"
               class="text-input" />
             <datalist id="font-options">
               <option value="Arial" label="Arial"></option>
@@ -97,11 +103,11 @@
           <div class="form-group">
             <label class="checkbox-label">
               <input type="checkbox" id="side-by-side" name="side_by_side" />
-              <span>Side-by-side translation (source | translation, aligned by paragraph)</span>
+              <span data-i18n="form.sideBySide">并排翻译（源文 | 译文，逐段对齐）</span>
             </label>
           </div>
           <button type="submit" class="btn-primary" id="translate-btn">
-            Start Translation
+            <span data-i18n="button.translate">开始翻译</span>
           </button>
         </form>
       </section>
@@ -109,23 +115,24 @@
 
     <section class="card status-section" id="status-card">
       <div class="status-content">
-        <div id="status-message">Ready to translate.</div>
+        <div id="status-message" data-i18n="status.ready">准备好翻译。</div>
         <div class="progress hidden" id="progress-indicator">
           <div class="spinner"></div>
-          <span id="progress-text">Processing...</span>
+          <span id="progress-text" data-i18n="progress.default">处理中...</span>
         </div>
       </div>
     </section>
 
     <section class="card downloads-section hidden" id="download-card">
       <div class="card-header">
-        <h2>Completed</h2>
+        <h2 data-i18n="card.completed">已完成</h2>
       </div>
       <ul class="download-list" id="download-list"></ul>
       <div class="failed-summary hidden" id="failed-summary"></div>
     </section>
   </main>
 
+  <script src="i18n.js" defer></script>
   <script src="script.js" defer></script>
 </body>
 

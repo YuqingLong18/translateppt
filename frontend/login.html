@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login - Document Translator</title>
+  <title data-i18n="title.login">DocTranslate 登录</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,6 +25,12 @@
       border-radius: var(--radius-lg);
       padding: 2.5rem;
       box-shadow: var(--shadow-md);
+    }
+
+    .login-card-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1rem;
     }
     
     .login-header {
@@ -150,6 +156,13 @@
 <body>
   <div class="login-container">
     <div class="login-card">
+      <div class="login-card-toolbar">
+        <div class="language-toggle" data-language-toggle>
+          <button type="button" data-language-option="zh">中文</button>
+          <span class="toggle-divider">/</span>
+          <button type="button" data-language-option="en">English</button>
+        </div>
+      </div>
       <div class="login-header">
         <div class="login-logo">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -161,114 +174,35 @@
           </svg>
         </div>
         <h1>DocTranslate</h1>
-        <p>Sign in to continue</p>
+        <p data-i18n="login.subheading">登录以继续</p>
       </div>
       
       <form class="login-form" id="login-form">
         <div class="error-message" id="error-message"></div>
         
         <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="username" />
+          <label for="username" data-i18n="login.usernameLabel">用户名</label>
+          <input type="text" id="username" name="username" placeholder="请输入用户名" required autocomplete="username"
+            data-i18n="login.usernamePlaceholder" data-i18n-attr="placeholder" />
         </div>
         
         <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password" />
+          <label for="password" data-i18n="login.passwordLabel">密码</label>
+          <input type="password" id="password" name="password" placeholder="请输入密码" required autocomplete="current-password"
+            data-i18n="login.passwordPlaceholder" data-i18n-attr="placeholder" />
         </div>
         
-        <button type="submit" class="login-button" id="login-button">
-          Sign In
+        <button type="submit" class="login-button" id="login-button" data-i18n="login.button">
+          登录
         </button>
       </form>
       
-      <div class="login-footer">
-        Document Translation Service
+      <div class="login-footer" data-i18n="login.footer">
+        文档翻译服务
       </div>
     </div>
   </div>
-
-  <script>
-    const loginForm = document.getElementById('login-form');
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    const loginButton = document.getElementById('login-button');
-    const errorMessage = document.getElementById('error-message');
-
-    // Check if already authenticated (silently handle failures)
-    fetch('/api/auth/check')
-      .then(response => response.json())
-      .then(data => {
-        if (data && data.authenticated) {
-          window.location.href = '/';
-        }
-        // Not authenticated - stay on login page (this is expected)
-      })
-      .catch(() => {
-        // Network error - silently ignore, user can still login
-      });
-
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const username = usernameInput.value.trim();
-      const password = passwordInput.value;
-      
-      if (!username || !password) {
-        showError('Please enter both username and password');
-        return;
-      }
-      
-      loginButton.disabled = true;
-      loginButton.textContent = 'Signing in...';
-      hideError();
-      
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ username, password }),
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.success) {
-          // Redirect to main app
-          window.location.href = '/';
-        } else {
-          showError(data.error || 'Invalid username or password');
-          loginButton.disabled = false;
-          loginButton.textContent = 'Sign In';
-        }
-      } catch (error) {
-        console.error('Login error:', error);
-        showError('Connection error. Please try again.');
-        loginButton.disabled = false;
-        loginButton.textContent = 'Sign In';
-      }
-    });
-    
-    function showError(message) {
-      errorMessage.textContent = message;
-      errorMessage.classList.add('show');
-    }
-    
-    function hideError() {
-      errorMessage.classList.remove('show');
-    }
-    
-    // Allow Enter key to submit
-    [usernameInput, passwordInput].forEach(input => {
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          loginForm.dispatchEvent(new Event('submit'));
-        }
-      });
-    });
-  </script>
+  <script src="i18n.js" defer></script>
+  <script src="login.js" defer></script>
 </body>
 </html>
-

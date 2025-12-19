@@ -12,16 +12,33 @@ const downloadCard = document.getElementById('download-card');
 const fileQueueList = document.getElementById('file-queue');
 const downloadList = document.getElementById('download-list');
 const failedSummary = document.getElementById('failed-summary');
+const userStatus = document.getElementById('user-status');
+const backToNexus = document.getElementById('back-to-nexus');
 
 const fontInput = document.getElementById('font-name');
 let fileQueue = [];
 let processingQueue = false;
+const completedDownloads = [];
+let failureDetails = [];
+let lastStatusMessage = { key: 'status.ready', replacements: undefined };
+let lastProgressMessage = null;
+let currentUsername = '';
+let pendingUserStatusKey = 'auth.checking';
+
+const translateText = (key, replacements) => {
+  if (window.i18n && typeof window.i18n.translate === 'function') {
+    return window.i18n.translate(key, replacements);
+  }
+  return key;
+};
+
+updateAuthDisplays();
 
 async function init() {
+  setStatus('status.waitingUpload');
+  attachEventListeners();
   await checkAuthentication();
   await fetchLanguages();
-  attachEventListeners();
-  setStatus('Waiting for file upload.');
 }
 
 async function checkAuthentication() {
@@ -30,15 +47,12 @@ async function checkAuthentication() {
       credentials: 'include'
     });
 
-    const userStatus = document.getElementById('user-status');
-    const backToNexus = document.getElementById('back-to-nexus');
-
     if (response.ok) {
       const data = await response.json();
       if (data.authenticated && data.username) {
-        userStatus.textContent = `👤 ${data.username}`;
-        userStatus.style.color = '#10b981';
-        backToNexus.textContent = '← Logout';
+        currentUsername = data.username;
+        pendingUserStatusKey = null;
+        updateAuthDisplays();
         backToNexus.href = '#';
         backToNexus.onclick = async (e) => {
           e.preventDefault();
@@ -61,6 +75,15 @@ async function checkAuthentication() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+document.addEventListener('i18n:languagechange', () => {
+  renderQueue();
+  renderDownloadList();
+  renderFailureSummary();
+  refreshStatus();
+  refreshProgress();
+  updateAuthDisplays();
+});
 
 function attachEventListeners() {
   fileInput.addEventListener('change', event => {
@@ -110,7 +133,7 @@ function attachEventListeners() {
       fileQueue.splice(index, 1);
       renderQueue();
       if (!fileQueue.length) {
-        setStatus('Waiting for file upload.');
+        setStatus('status.waitingUpload');
       }
     }
   });
@@ -122,14 +145,15 @@ function addFilesToQueue(files) {
   );
 
   if (!uniqueFiles.length) {
-    setStatus('Selected files are already queued.');
+    setStatus('status.filesAlreadyQueued');
     return;
   }
 
   fileQueue = fileQueue.concat(uniqueFiles);
   renderQueue();
   const count = fileQueue.length;
-  setStatus(`${count} file${count === 1 ? '' : 's'} queued. Configure settings and click Translate.`);
+  const suffix = count === 1 ? '' : 's';
+  setStatus('status.filesQueued', { count, suffix });
 }
 
 function isSameFile(fileA, fileB) {
@@ -164,7 +188,7 @@ function renderQueue() {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.dataset.removeIndex = String(index);
-    removeBtn.textContent = 'Remove';
+    removeBtn.textContent = translateText('queue.remove');
 
     li.append(meta, removeBtn);
     fileQueueList.appendChild(li);
@@ -194,7 +218,7 @@ async function fetchLanguages() {
     handleTargetLanguageChange();
   } catch (error) {
     console.error(error);
-    setStatus('Unable to load languages. Refresh the page and try again.');
+    setStatus('status.languagesError');
   }
 }
 
@@ -202,16 +226,16 @@ async function handleTranslate(event) {
   event.preventDefault();
 
   if (!fileQueue.length && !processingQueue) {
-    setStatus('Add at least one file to the queue before translating.');
+    setStatus('status.addFile');
     return;
   }
   if (processingQueue) {
-    setStatus('A queue is already processing. Please wait.');
+    setStatus('status.processingQueue');
     return;
   }
 
   if (!targetSelect.value) {
-    setStatus('Choose a target language to continue.');
+    setStatus('status.chooseTarget');
     return;
   }
 
@@ -226,16 +250,25 @@ async function handleTranslate(event) {
   for (let index = 0; index < queuedFiles.length; index += 1) {
     const file = queuedFiles[index];
     try {
-      showProgress(`Uploading ${file.name} (${index + 1}/${queuedFiles.length})...`);
+      showProgress('progress.uploading', {
+        name: file.name,
+        current: index + 1,
+        total: queuedFiles.length
+      });
       const uploadResponse = await uploadFile(file);
-      showProgress(`Translating ${file.name} (${index + 1}/${queuedFiles.length})...`);
+      showProgress('progress.translating', {
+        name: file.name,
+        current: index + 1,
+        total: queuedFiles.length
+      });
       const translateResponse = await translateFile(uploadResponse.file_id);
       appendDownloadLink(translateResponse, file.name);
-      setStatus(`Finished ${file.name}.`);
+      setStatus('status.finishedFile', { name: file.name });
     } catch (error) {
       console.error(error);
-      failures.push({ name: file.name, reason: error.message || 'Translation failed' });
-      setStatus(`Skipped ${file.name}: ${error.message || 'Translation failed'}. Continuing...`);
+      const reason = error.message || translateText('common.translationFailed');
+      failures.push({ name: file.name, reason });
+      setStatus('status.skipFile', { name: file.name, reason });
     }
   }
 
@@ -245,13 +278,13 @@ async function handleTranslate(event) {
 
   if (failures.length) {
     showFailureSummary(failures);
-    setStatus('Queue finished with some errors. See details below.');
-  } else if (downloadList.children.length) {
+    setStatus('status.queueWithErrors');
+  } else if (completedDownloads.length) {
     clearFailureSummary();
-    setStatus('All queued files translated successfully.');
+    setStatus('status.queueSuccess');
   } else {
     clearFailureSummary();
-    setStatus('No files were translated.');
+    setStatus('status.queueEmpty');
   }
 }
 
@@ -324,64 +357,98 @@ async function translateFile(fileId) {
   return response.json();
 }
 
-function showProgress(message) {
+function showProgress(messageKey, replacements) {
+  lastProgressMessage = { key: messageKey, replacements };
   progressIndicator.classList.remove('hidden');
-  progressText.textContent = message;
-  setStatus(message);
+  refreshProgress();
+  setStatus(messageKey, replacements);
 }
 
 function hideProgress() {
   progressIndicator.classList.add('hidden');
+  lastProgressMessage = null;
+  refreshProgress();
 }
 
 function resetDownloadSection() {
+  completedDownloads.length = 0;
   downloadList.innerHTML = '';
+  failureDetails = [];
+  renderDownloadList();
+  renderFailureSummary();
   downloadCard.classList.add('hidden');
-  clearFailureSummary();
 }
 
 function appendDownloadLink({ download_url, filename, target_lang }, originalName) {
-  downloadCard.classList.remove('hidden');
-  const item = document.createElement('li');
-  item.className = 'download-item';
+  completedDownloads.push({
+    download_url,
+    filename,
+    target_lang,
+    originalName: originalName || filename
+  });
+  renderDownloadList();
+}
 
-  const meta = document.createElement('div');
-  meta.className = 'download-meta';
+function renderDownloadList() {
+  downloadList.innerHTML = '';
+  completedDownloads.forEach(({ download_url, filename, target_lang, originalName }) => {
+    const item = document.createElement('li');
+    item.className = 'download-item';
 
-  const nameEl = document.createElement('span');
-  nameEl.className = 'download-filename';
-  nameEl.textContent = originalName || filename;
+    const meta = document.createElement('div');
+    meta.className = 'download-meta';
 
-  const langEl = document.createElement('span');
-  langEl.className = 'file-size';
-  langEl.textContent = target_lang ? `→ ${target_lang.toUpperCase()}` : '';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'download-filename';
+    nameEl.textContent = originalName;
 
-  meta.append(nameEl, langEl);
+    const langEl = document.createElement('span');
+    langEl.className = 'file-size';
+    langEl.textContent = target_lang ? `→ ${target_lang.toUpperCase()}` : '';
 
-  const link = document.createElement('a');
-  link.href = download_url;
-  link.download = filename;
-  link.textContent = 'Download';
+    meta.append(nameEl, langEl);
 
-  item.append(meta, link);
-  downloadList.appendChild(item);
+    const link = document.createElement('a');
+    link.href = download_url;
+    link.download = filename;
+    link.textContent = translateText('downloads.link');
+
+    item.append(meta, link);
+    downloadList.appendChild(item);
+  });
+
+  if (completedDownloads.length) {
+    downloadCard.classList.remove('hidden');
+  } else if (!failureDetails.length) {
+    downloadCard.classList.add('hidden');
+  }
 }
 
 function showFailureSummary(failures) {
-  if (!failures.length) {
-    clearFailureSummary();
+  failureDetails = failures.slice();
+  renderFailureSummary();
+}
+
+function renderFailureSummary() {
+  if (!failureDetails.length) {
+    failedSummary.classList.add('hidden');
+    failedSummary.textContent = '';
+    if (!completedDownloads.length) {
+      downloadCard.classList.add('hidden');
+    }
     return;
   }
+
   downloadCard.classList.remove('hidden');
   failedSummary.innerHTML = '';
   failedSummary.classList.remove('hidden');
 
   const heading = document.createElement('div');
-  heading.textContent = 'Unable to translate:';
+  heading.textContent = translateText('failures.heading');
   failedSummary.appendChild(heading);
 
   const list = document.createElement('ul');
-  failures.forEach(({ name, reason }) => {
+  failureDetails.forEach(({ name, reason }) => {
     const item = document.createElement('li');
     item.textContent = `${name} — ${reason}`;
     list.appendChild(item);
@@ -390,12 +457,42 @@ function showFailureSummary(failures) {
 }
 
 function clearFailureSummary() {
-  failedSummary.classList.add('hidden');
-  failedSummary.textContent = '';
+  failureDetails = [];
+  renderFailureSummary();
 }
 
-function setStatus(message) {
-  statusMessage.textContent = message;
+function setStatus(messageKey, replacements) {
+  lastStatusMessage = { key: messageKey, replacements };
+  refreshStatus();
+}
+
+function refreshStatus() {
+  if (!lastStatusMessage || !lastStatusMessage.key) return;
+  statusMessage.textContent = translateText(lastStatusMessage.key, lastStatusMessage.replacements);
+}
+
+function refreshProgress() {
+  if (lastProgressMessage) {
+    progressText.textContent = translateText(lastProgressMessage.key, lastProgressMessage.replacements);
+  } else {
+    progressText.textContent = translateText('progress.default');
+  }
+}
+
+function updateAuthDisplays() {
+  if (userStatus) {
+    if (currentUsername) {
+      userStatus.textContent = `👤 ${currentUsername}`;
+      userStatus.style.color = '#10b981';
+    } else {
+      userStatus.textContent = translateText(pendingUserStatusKey || 'auth.checking');
+      userStatus.style.color = '';
+    }
+  }
+
+  if (backToNexus) {
+    backToNexus.textContent = translateText('auth.logout');
+  }
 }
 
 function formatBytes(bytes) {
