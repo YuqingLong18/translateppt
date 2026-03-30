@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from flask import Flask, abort, jsonify, request, send_from_directory, session, redirect
 from langdetect import detect, LangDetectException
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 from .config import settings
@@ -118,6 +119,18 @@ def create_app() -> Flask:
     settings.output_folder.mkdir(parents=True, exist_ok=True)
 
     register_routes(app)
+    register_error_handlers(app)
+
+    LOGGER.info(
+        "Application configured. runtime_dir=%s upload_folder=%s output_folder=%s static_folder=%s openrouter_api_base=%s default_model=%s openrouter_key_present=%s",
+        settings.runtime_dir,
+        settings.upload_folder,
+        settings.output_folder,
+        settings.static_folder,
+        settings.openrouter_api_base,
+        settings.default_model,
+        bool(settings.openrouter_api_key),
+    )
     return app
 
 
@@ -262,6 +275,18 @@ def register_routes(app: Flask) -> None:
         try:
             translated_texts = translator.translate_texts([element.text for element in elements])
         except TranslationError as exc:
+            LOGGER.error(
+                "Translation failed. file_id=%s original_name=%s user=%s source_lang=%s target_lang=%s model=%s provider_status=%s detail=%s",
+                file_id,
+                record.original_name,
+                user_info.get("username"),
+                source_lang,
+                target_lang,
+                model,
+                getattr(exc, "provider_status", None),
+                str(exc),
+                exc_info=True,
+            )
             abort(502, description=str(exc))
 
         mapping = {element.element_id: translated for element, translated in zip(elements, translated_texts)}
@@ -329,6 +354,51 @@ def register_routes(app: Flask) -> None:
 
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in settings.allowed_extensions
+
+
+def register_error_handlers(app: Flask) -> None:
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(exc: HTTPException):
+        if not _should_return_json_error():
+            return exc
+        return (
+            jsonify(
+                {
+                    "error": exc.name,
+                    "description": exc.description,
+                    "status_code": exc.code,
+                }
+            ),
+            exc.code,
+        )
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_exception(exc: Exception):
+        LOGGER.exception("Unhandled application error")
+        if not _should_return_json_error():
+            return "Internal Server Error", 500
+        return (
+            jsonify(
+                {
+                    "error": "Internal Server Error",
+                    "description": "An unexpected server error occurred.",
+                    "status_code": 500,
+                }
+            ),
+            500,
+        )
+
+
+def _should_return_json_error() -> bool:
+    json_routes = ("/api/", "/upload", "/translate", "/languages")
+    if request.path == "/api" or request.path.startswith(json_routes):
+        return True
+    if request.is_json:
+        return True
+    best = request.accept_mimetypes.best
+    if best == "application/json":
+        return request.accept_mimetypes[best] >= request.accept_mimetypes["text/html"]
+    return False
 
 
 def _detect_language(elements: Iterable[TextElement]) -> Optional[str]:

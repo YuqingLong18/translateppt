@@ -17,6 +17,17 @@ LOGGER = logging.getLogger(__name__)
 class TranslationError(RuntimeError):
     """Raised when the translation provider fails."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider_status: Optional[int] = None,
+        response_preview: Optional[str] = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider_status = provider_status
+        self.response_preview = response_preview
+
 
 @dataclass
 class TranslationConfig:
@@ -53,20 +64,40 @@ class OpenRouterTranslator:
         try:
             response = requests.post(endpoint, json=payload, headers=headers, timeout=300)
         except requests.RequestException as exc:  # pragma: no cover - network failure
+            LOGGER.exception(
+                "Failed to contact OpenRouter API. endpoint=%s model=%s",
+                endpoint,
+                self.config.model or settings.default_model,
+            )
             raise TranslationError("Failed to contact OpenRouter API") from exc
 
         if response.status_code >= 400:
             error_preview = response.text[:500] if len(response.text) > 500 else response.text
+            LOGGER.error(
+                "OpenRouter API returned an error. endpoint=%s model=%s status=%s response=%s",
+                endpoint,
+                self.config.model or settings.default_model,
+                response.status_code,
+                error_preview,
+            )
             raise TranslationError(
-                f"OpenRouter API returned {response.status_code}: {error_preview}"
+                f"OpenRouter API returned {response.status_code}: {error_preview}",
+                provider_status=response.status_code,
+                response_preview=error_preview,
             )
 
         data = response.json()
         try:
             message_content = data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError) as exc:
-            LOGGER.error("Unexpected response structure: %s", data)
-            raise TranslationError("Could not parse translation response from OpenRouter - invalid response structure") from exc
+            LOGGER.error(
+                "Unexpected OpenRouter response structure. model=%s response=%s",
+                self.config.model or settings.default_model,
+                data,
+            )
+            raise TranslationError(
+                "Could not parse translation response from OpenRouter - invalid response structure"
+            ) from exc
 
         translations = self._extract_translations(message_content, len(texts))
         if len(translations) != len(texts):
