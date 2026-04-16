@@ -67,13 +67,15 @@ body {
   color: var(--text-secondary);
 }
 
-#back-to-nexus {
+#back-to-nexus,
+#logout-link {
   color: #3b82f6;
   text-decoration: none;
   font-size: 0.875rem;
 }
 
-#back-to-nexus:hover {
+#back-to-nexus:hover,
+#logout-link:hover {
   text-decoration: underline;
 }
 
@@ -340,6 +342,53 @@ select:focus,
 
 .checkbox-label:hover {
   color: var(--text-primary);
+}
+
+.option-group > label {
+  margin-bottom: 0.75rem;
+}
+
+.option-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-body);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.radio-card:hover {
+  border-color: var(--border-hover);
+  background: #f1f5f9;
+}
+
+.radio-card input[type='radio'] {
+  margin-top: 0.2rem;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.option-title {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.option-copy {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 /* Primary Button */

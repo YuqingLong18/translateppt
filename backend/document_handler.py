@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import html
+import os
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional
 
 from docx import Document
 from docx.table import _Cell as DocxCell
 from docx.text.paragraph import Paragraph
 from openpyxl import load_workbook
+from pypdf import PdfReader
 from pptx import Presentation
 from pptx.enum.text import PP_ALIGN
 from pptx.shapes.base import BaseShape
@@ -21,6 +25,13 @@ from pptx.util import Pt
 class TextElement:
     element_id: str
     text: str
+
+
+@dataclass(frozen=True)
+class TranslationOptions:
+    side_by_side: bool = False
+    pdf_output_format: str = "pdf"
+    spreadsheet_mode: str = "in_place"
 
 
 def _get_run_font_attributes(runs) -> tuple[Optional[str], Optional[Any]]:
@@ -47,7 +58,7 @@ class DocumentHandler:
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
-        side_by_side: bool = False,
+        options: Optional[TranslationOptions] = None,
         original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:  # pragma: no cover - protocol
         raise NotImplementedError
@@ -77,15 +88,23 @@ class PowerPointHandler(DocumentHandler):
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
-        side_by_side: bool = False,
+        options: Optional[TranslationOptions] = None,
         original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:
         presentation = Presentation(self.presentation_path)
         original_texts = original_texts or {}
+        options = options or TranslationOptions()
 
         for slide_index, slide in enumerate(presentation.slides):
             for shape_index, shape in enumerate(slide.shapes):
-                self._apply_to_shape(slide_index, shape_index, shape, translations, side_by_side, original_texts)
+                self._apply_to_shape(
+                    slide_index,
+                    shape_index,
+                    shape,
+                    translations,
+                    options.side_by_side,
+                    original_texts,
+                )
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -223,7 +242,7 @@ class WordHandler(DocumentHandler):
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
-        side_by_side: bool = False,
+        options: Optional[TranslationOptions] = None,
         original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:
         document = Document(self.document_path)
@@ -330,29 +349,272 @@ class ExcelHandler(DocumentHandler):
         translations: Dict[str, str],
         output_path: Path,
         font_name: Optional[str] = None,
-        side_by_side: bool = False,
+        options: Optional[TranslationOptions] = None,
         original_texts: Optional[Dict[str, str]] = None,
     ) -> Path:
+        options = options or TranslationOptions()
         workbook = load_workbook(self.workbook_path)
+        original_sheets = list(workbook.worksheets)
 
-        for sheet_index, sheet in enumerate(workbook.worksheets):
-            for row in sheet.iter_rows():
-                for cell in row:
-                    element_id = self._cell_id(sheet_index, cell.row, cell.column)
-                    translated = translations.get(element_id)
-                    if translated is not None:
-                        cell.value = translated
-                        if font_name:
-                            cell.font = cell.font.copy(name=font_name)
+        if options.spreadsheet_mode == "in_place":
+            for sheet_index, sheet in enumerate(original_sheets):
+                self._apply_to_sheet(sheet_index, sheet, translations, font_name=font_name)
+        elif options.spreadsheet_mode == "new_sheet":
+            for sheet_index, sheet in enumerate(original_sheets):
+                translated_sheet = workbook.copy_worksheet(sheet)
+                translated_sheet.title = self._translated_sheet_title(sheet.title, workbook.sheetnames)
+                workbook._sheets.remove(translated_sheet)
+                original_position = workbook._sheets.index(sheet)
+                workbook._sheets.insert(original_position + 1, translated_sheet)
+                self._apply_to_sheet(sheet_index, translated_sheet, translations, font_name=font_name)
+        else:
+            raise ValueError(f"Unsupported spreadsheet mode: {options.spreadsheet_mode}")
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         workbook.save(output_path)
         return output_path
 
+    def _apply_to_sheet(
+        self,
+        sheet_index: int,
+        sheet,
+        translations: Dict[str, str],
+        font_name: Optional[str] = None,
+    ) -> None:
+        for row in sheet.iter_rows():
+            for cell in row:
+                element_id = self._cell_id(sheet_index, cell.row, cell.column)
+                translated = translations.get(element_id)
+                if translated is not None:
+                    cell.value = translated
+                    if font_name:
+                        cell.font = cell.font.copy(name=font_name)
+
+    @staticmethod
+    def _translated_sheet_title(base_title: str, existing_titles: List[str]) -> str:
+        suffix = " (Translated)"
+        max_base_length = 31 - len(suffix)
+        candidate = f"{base_title[:max_base_length]}{suffix}"
+        if candidate not in existing_titles:
+            return candidate
+
+        index = 2
+        while True:
+            numbered_suffix = f" (Translated {index})"
+            max_base_length = 31 - len(numbered_suffix)
+            candidate = f"{base_title[:max_base_length]}{numbered_suffix}"
+            if candidate not in existing_titles:
+                return candidate
+            index += 1
+
     @staticmethod
     def _cell_id(sheet_index: int, row_index: int, column_index: int) -> str:
         return f"xls_s{sheet_index}_r{row_index}_c{column_index}"
+
+
+class PdfHandler(DocumentHandler):
+    """Extracts text from PDFs and renders translated output as PDF or DOCX."""
+
+    def __init__(self, pdf_path: Path):
+        self.pdf_path = Path(pdf_path)
+
+    def extract_text(self) -> List[TextElement]:
+        elements: List[TextElement] = []
+        for page_index, blocks in enumerate(self._extract_page_blocks()):
+            for block_index, text in enumerate(blocks):
+                elements.append(TextElement(self._block_id(page_index, block_index), text))
+        return elements
+
+    def apply_translations(
+        self,
+        translations: Dict[str, str],
+        output_path: Path,
+        font_name: Optional[str] = None,
+        options: Optional[TranslationOptions] = None,
+        original_texts: Optional[Dict[str, str]] = None,
+    ) -> Path:
+        options = options or TranslationOptions()
+        if options.pdf_output_format == "docx":
+            return self._render_docx(translations, output_path, font_name=font_name)
+        if options.pdf_output_format == "pdf":
+            return self._render_pdf(translations, output_path, font_name=font_name)
+        raise ValueError(f"Unsupported PDF output format: {options.pdf_output_format}")
+
+    def _extract_page_blocks(self) -> List[List[str]]:
+        reader = PdfReader(self.pdf_path)
+        pages: List[List[str]] = []
+        for page in reader.pages:
+            raw_text = page.extract_text() or ""
+            pages.append(self._split_pdf_text(raw_text))
+        return pages
+
+    def _render_docx(
+        self,
+        translations: Dict[str, str],
+        output_path: Path,
+        font_name: Optional[str] = None,
+    ) -> Path:
+        document = Document()
+        page_blocks = self._extract_page_blocks()
+
+        for page_index, blocks in enumerate(page_blocks):
+            if len(page_blocks) > 1:
+                heading = document.add_heading(f"Page {page_index + 1}", level=2)
+                self._apply_font_to_docx_paragraph(heading, font_name)
+            for block_index, original_text in enumerate(blocks):
+                translated = translations.get(self._block_id(page_index, block_index), original_text)
+                paragraph = document.add_paragraph(translated)
+                self._apply_font_to_docx_paragraph(paragraph, font_name)
+            if page_index < len(page_blocks) - 1:
+                document.add_page_break()
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        document.save(output_path)
+        return output_path
+
+    def _render_pdf(
+        self,
+        translations: Dict[str, str],
+        output_path: Path,
+        font_name: Optional[str] = None,
+    ) -> Path:
+        try:
+            from reportlab.lib.enums import TA_LEFT
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+            from reportlab.lib.units import mm
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
+        except ModuleNotFoundError as exc:  # pragma: no cover - depends on runtime env
+            raise RuntimeError(
+                "PDF output requires the reportlab package. Run pip install -r backend/requirements.txt."
+            ) from exc
+
+        page_blocks = self._extract_page_blocks()
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        resolved_font_name = "Helvetica"
+        font_path = self._resolve_pdf_font_path(font_name)
+        if font_path:
+            registered_name = "TranslatePdfFont"
+            if registered_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(registered_name, str(font_path)))
+            resolved_font_name = registered_name
+
+        styles = getSampleStyleSheet()
+        body_style = ParagraphStyle(
+            "TranslatedBody",
+            parent=styles["BodyText"],
+            fontName=resolved_font_name,
+            fontSize=11,
+            leading=16,
+            alignment=TA_LEFT,
+            spaceAfter=10,
+            wordWrap="CJK",
+        )
+        heading_style = ParagraphStyle(
+            "TranslatedHeading",
+            parent=styles["Heading2"],
+            fontName=resolved_font_name,
+            fontSize=14,
+            leading=18,
+            spaceAfter=12,
+            wordWrap="CJK",
+        )
+
+        story = []
+        for page_index, blocks in enumerate(page_blocks):
+            if len(page_blocks) > 1:
+                story.append(Paragraph(html.escape(f"Page {page_index + 1}"), heading_style))
+            for block_index, original_text in enumerate(blocks):
+                translated = translations.get(self._block_id(page_index, block_index), original_text)
+                story.append(Paragraph(self._to_pdf_markup(translated), body_style))
+                story.append(Spacer(1, 3 * mm))
+            if page_index < len(page_blocks) - 1:
+                story.append(PageBreak())
+
+        document = SimpleDocTemplate(
+            str(output_path),
+            pagesize=A4,
+            leftMargin=18 * mm,
+            rightMargin=18 * mm,
+            topMargin=18 * mm,
+            bottomMargin=18 * mm,
+        )
+        document.build(story)
+        return output_path
+
+    @staticmethod
+    def _split_pdf_text(text: str) -> List[str]:
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+        blocks: List[str] = []
+        for block in re.split(r"\n\s*\n+", normalized):
+            lines = [line.strip() for line in block.split("\n") if line.strip()]
+            if lines:
+                blocks.append(" ".join(lines))
+        return blocks
+
+    @staticmethod
+    def _block_id(page_index: int, block_index: int) -> str:
+        return f"pdf_p{page_index}_b{block_index}"
+
+    @staticmethod
+    def _apply_font_to_docx_paragraph(paragraph: Paragraph, font_name: Optional[str]) -> None:
+        if not font_name:
+            return
+        for run in paragraph.runs:
+            run.font.name = font_name
+
+    @staticmethod
+    def _to_pdf_markup(text: str) -> str:
+        return html.escape(text).replace("\n", "<br/>")
+
+    @staticmethod
+    def _resolve_pdf_font_path(font_name: Optional[str]) -> Optional[Path]:
+        configured_path = os.getenv("PDF_FONT_PATH")
+        if configured_path:
+            candidate = Path(configured_path)
+            if candidate.exists():
+                return candidate
+
+        candidate_names = [font_name] if font_name else []
+        candidate_names.extend(
+            [
+                "NotoSansCJK-Regular.ttc",
+                "NotoSansCJKsc-Regular.otf",
+                "NotoSansSC-Regular.ttf",
+                "SourceHanSansSC-Regular.otf",
+                "PingFang.ttc",
+                "Arial Unicode.ttf",
+                "Arial Unicode MS.ttf",
+                "DejaVuSans.ttf",
+            ]
+        )
+        search_dirs = [
+            Path("/System/Library/Fonts"),
+            Path("/Library/Fonts"),
+            Path("/usr/share/fonts"),
+            Path("/usr/local/share/fonts"),
+            Path.home() / ".fonts",
+        ]
+
+        for name in candidate_names:
+            if not name:
+                continue
+            direct = Path(name)
+            if direct.exists():
+                return direct
+            for directory in search_dirs:
+                if not directory.exists():
+                    continue
+                for match in directory.rglob("*"):
+                    if match.is_file() and match.name.lower() == Path(name).name.lower():
+                        return match
+        return None
 
 
 def get_document_handler(path: Path) -> DocumentHandler:
@@ -363,4 +625,6 @@ def get_document_handler(path: Path) -> DocumentHandler:
         return WordHandler(path)
     if suffix == ".xlsx":
         return ExcelHandler(path)
+    if suffix == ".pdf":
+        return PdfHandler(path)
     raise ValueError(f"Unsupported file type: {suffix}")

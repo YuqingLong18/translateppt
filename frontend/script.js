@@ -14,6 +14,9 @@ const downloadList = document.getElementById('download-list');
 const failedSummary = document.getElementById('failed-summary');
 const userStatus = document.getElementById('user-status');
 const backToNexus = document.getElementById('back-to-nexus');
+const logoutLink = document.getElementById('logout-link');
+const pdfOutputGroup = document.getElementById('pdf-output-group');
+const xlsxOutputGroup = document.getElementById('xlsx-output-group');
 
 const fontInput = document.getElementById('font-name');
 let fileQueue = [];
@@ -37,6 +40,7 @@ updateAuthDisplays();
 async function init() {
   setStatus('status.waitingUpload');
   attachEventListeners();
+  updateTranslationOptionVisibility();
   await checkAuthentication();
   await fetchLanguages();
 }
@@ -53,8 +57,10 @@ async function checkAuthentication() {
         currentUsername = data.display_name || data.username || data.email || '';
         pendingUserStatusKey = null;
         updateAuthDisplays();
-        backToNexus.href = '/api/auth/logout';
-        backToNexus.onclick = null;
+        if (logoutLink) {
+          logoutLink.href = '/api/auth/logout';
+          logoutLink.onclick = null;
+        }
       } else {
         window.location.href = '/login';
       }
@@ -157,6 +163,7 @@ function renderQueue() {
   if (!fileQueue.length) {
     fileInfo.classList.add('hidden');
     fileQueueList.innerHTML = '';
+    updateTranslationOptionVisibility();
     return;
   }
 
@@ -186,6 +193,7 @@ function renderQueue() {
     li.append(meta, removeBtn);
     fileQueueList.appendChild(li);
   });
+  updateTranslationOptionVisibility();
 }
 async function fetchLanguages() {
   try {
@@ -254,7 +262,7 @@ async function handleTranslate(event) {
         current: index + 1,
         total: queuedFiles.length
       });
-      const translateResponse = await translateFile(uploadResponse.file_id);
+      const translateResponse = await translateFile(uploadResponse.file_id, file);
       appendDownloadLink(translateResponse, file.name);
       setStatus('status.finishedFile', { name: file.name });
     } catch (error) {
@@ -309,8 +317,9 @@ async function uploadFile(file) {
   return response.json();
 }
 
-async function translateFile(fileId) {
+async function translateFile(fileId, file) {
   const sideBySideCheckbox = document.getElementById('side-by-side');
+  const extension = getFileExtension(file?.name || '');
   const payload = {
     file_id: fileId,
     source_lang: sourceSelect.value,
@@ -318,6 +327,13 @@ async function translateFile(fileId) {
     font: fontInput.value,
     side_by_side: sideBySideCheckbox.checked || false,
   };
+
+  if (extension === 'pdf') {
+    payload.pdf_output_format = getCheckedValue('pdf_output_format', 'pdf');
+  }
+  if (extension === 'xlsx') {
+    payload.spreadsheet_mode = getCheckedValue('spreadsheet_mode', 'in_place');
+  }
 
   const response = await fetch('/translate', {
     method: 'POST',
@@ -484,8 +500,38 @@ function updateAuthDisplays() {
   }
 
   if (backToNexus) {
-    backToNexus.textContent = translateText('auth.logout');
+    backToNexus.textContent = translateText('auth.backToNexus');
   }
+  if (logoutLink) {
+    logoutLink.textContent = translateText('auth.logout');
+  }
+}
+
+function getFileExtension(filename) {
+  const parts = String(filename || '').toLowerCase().split('.');
+  return parts.length > 1 ? parts.pop() : '';
+}
+
+function queueContainsExtension(extension) {
+  return fileQueue.some((file) => getFileExtension(file.name) === extension);
+}
+
+function setGroupVisibility(group, visible) {
+  if (!group) return;
+  group.classList.toggle('hidden', !visible);
+  group.querySelectorAll('input').forEach((input) => {
+    input.disabled = !visible;
+  });
+}
+
+function updateTranslationOptionVisibility() {
+  setGroupVisibility(pdfOutputGroup, queueContainsExtension('pdf'));
+  setGroupVisibility(xlsxOutputGroup, queueContainsExtension('xlsx'));
+}
+
+function getCheckedValue(name, fallback) {
+  const input = document.querySelector(`input[name="${name}"]:checked`);
+  return input ? input.value : fallback;
 }
 
 function formatBytes(bytes) {

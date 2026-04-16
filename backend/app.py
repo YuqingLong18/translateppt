@@ -14,7 +14,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 from .config import settings
-from .document_handler import TextElement, get_document_handler
+from .document_handler import TextElement, TranslationOptions, get_document_handler
 from .translator import OpenRouterTranslator, TranslationConfig, TranslationError
 from .auth_middleware import (
     build_logout_url,
@@ -277,8 +277,15 @@ def register_routes(app: Flask) -> None:
         side_by_side = payload.get("side_by_side", False)
         if isinstance(side_by_side, str):
             side_by_side = side_by_side.lower() in ("true", "1", "yes")
+        pdf_output_format = (payload.get("pdf_output_format") or "pdf").strip().lower()
+        spreadsheet_mode = (payload.get("spreadsheet_mode") or "in_place").strip().lower()
         api_key = (payload.get("api_key") or settings.openrouter_api_key or "").strip()
         model = settings.default_model
+        translation_options = TranslationOptions(
+            side_by_side=side_by_side,
+            pdf_output_format=pdf_output_format,
+            spreadsheet_mode=spreadsheet_mode,
+        )
 
         try:
             handler = get_document_handler(record.path)
@@ -322,11 +329,23 @@ def register_routes(app: Flask) -> None:
         original_texts = {element.element_id: element.text for element in elements}
 
         output_id = uuid4().hex
-        original_suffix = Path(record.original_name).suffix or Path(record.path).suffix
-        output_filename = f"{Path(record.original_name).stem}_{target_lang}{original_suffix}"
-        stored_name = f"{output_id}{original_suffix}"
+        source_suffix = (Path(record.original_name).suffix or Path(record.path).suffix).lower()
+        output_suffix = _resolve_output_suffix(source_suffix, translation_options)
+        output_filename = f"{Path(record.original_name).stem}_{target_lang}{output_suffix}"
+        stored_name = f"{output_id}{output_suffix}"
         output_path = Path(app.config["OUTPUT_FOLDER"]) / stored_name
-        handler.apply_translations(mapping, output_path, font_name=font_name, side_by_side=side_by_side, original_texts=original_texts)
+        try:
+            handler.apply_translations(
+                mapping,
+                output_path,
+                font_name=font_name,
+                options=translation_options,
+                original_texts=original_texts,
+            )
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        except RuntimeError as exc:
+            abort(500, description=str(exc))
 
         output_record = FileRecord(
             file_id=output_id,
@@ -441,6 +460,14 @@ def _detect_language(elements: Iterable[TextElement]) -> Optional[str]:
         except LangDetectException:
             continue
     return None
+
+
+def _resolve_output_suffix(source_suffix: str, options: TranslationOptions) -> str:
+    if source_suffix == ".pdf":
+        if options.pdf_output_format == "docx":
+            return ".docx"
+        return ".pdf"
+    return source_suffix
 
 
 if __name__ == "__main__":

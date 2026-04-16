@@ -34,7 +34,10 @@
           <span class="toggle-divider">/</span>
           <button type="button" data-language-option="en">English</button>
         </div>
-        <a href="#" id="back-to-nexus" data-i18n="auth.logout">
+        <a href="https://thisnexus.cn" id="back-to-nexus" data-i18n="auth.backToNexus">
+          ← 返回 THIS Nexus
+        </a>
+        <a href="#" id="logout-link" data-i18n="auth.logout">
           ← 退出登录
         </a>
       </div>
@@ -56,8 +59,8 @@
             </svg>
           </div>
           <p class="upload-text" data-i18n="upload.cta">拖拽文件到此或点击选择</p>
-          <p class="upload-subtext" data-i18n="upload.supported">支持 .pptx, .docx, .xlsx</p>
-          <input type="file" id="file-input" accept=".pptx,.docx,.xlsx" multiple />
+          <p class="upload-subtext" data-i18n="upload.supported">支持 .pptx, .docx, .xlsx, .pdf</p>
+          <input type="file" id="file-input" accept=".pptx,.docx,.xlsx,.pdf" multiple />
         </div>
         <div class="file-queue hidden" id="file-info">
           <ul id="file-queue"></ul>
@@ -105,6 +108,36 @@
               <input type="checkbox" id="side-by-side" name="side_by_side" />
               <span data-i18n="form.sideBySide">并排翻译（源文 | 译文，逐段对齐）</span>
             </label>
+          </div>
+          <div class="form-group option-group hidden" id="pdf-output-group">
+            <label data-i18n="form.pdfOutputLabel">PDF 输出格式</label>
+            <div class="option-grid">
+              <label class="radio-card">
+                <input type="radio" name="pdf_output_format" value="pdf" checked />
+                <span class="option-title" data-i18n="form.pdfOutputPdf">输出为 PDF</span>
+                <span class="option-copy" data-i18n="form.pdfOutputPdfCopy">保留 PDF 交付格式，生成翻译后的 PDF。</span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="pdf_output_format" value="docx" />
+                <span class="option-title" data-i18n="form.pdfOutputDocx">输出为可编辑 DOCX</span>
+                <span class="option-copy" data-i18n="form.pdfOutputDocxCopy">把 PDF 中提取的文本整理到可编辑的 Word 文档中。</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group option-group hidden" id="xlsx-output-group">
+            <label data-i18n="form.xlsxModeLabel">Excel 翻译方式</label>
+            <div class="option-grid">
+              <label class="radio-card">
+                <input type="radio" name="spreadsheet_mode" value="in_place" checked />
+                <span class="option-title" data-i18n="form.xlsxModeInPlace">直接替换原单元格</span>
+                <span class="option-copy" data-i18n="form.xlsxModeInPlaceCopy">在原工作表中写回翻译结果。</span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="spreadsheet_mode" value="new_sheet" />
+                <span class="option-title" data-i18n="form.xlsxModeNewSheet">保留原表并新增翻译表</span>
+                <span class="option-copy" data-i18n="form.xlsxModeNewSheetCopy">为每个工作表复制一个翻译版本，放在原表旁边。</span>
+              </label>
+            </div>
           </div>
           <button type="submit" class="btn-primary" id="translate-btn">
             <span data-i18n="button.translate">开始翻译</span>

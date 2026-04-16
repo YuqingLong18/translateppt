@@ -1,11 +1,13 @@
 # Document Translation Prototype
 
-Prototype web application that translates PowerPoint presentations, Word documents, and Excel workbooks using an OpenRouter-backed LLM. The app extracts document text, sends it for translation, replaces the original content while preserving layout, and provides the translated file for download.
+Prototype web application that translates PowerPoint presentations, Word documents, Excel workbooks, and PDFs using an OpenRouter-backed LLM. The app extracts document text, sends it for translation, replaces the original content while preserving layout where possible, and provides the translated file for download.
 
 ## Features
-- Upload `.pptx`, `.docx`, or `.xlsx` files up to 50MB
+- Upload `.pptx`, `.docx`, `.xlsx`, or `.pdf` files up to 50MB
 - Queue multiple documents per run; translations execute sequentially with per-file download links
 - Configure source/target languages (auto-detect supported) and optional font override
+- Choose PDF output as translated `.pdf` or editable `.docx`
+- Choose Excel output as in-place replacement or translated companion sheets beside the originals
 - Supply an OpenRouter API key directly in the UI or via environment variable
 - Progress feedback during upload/translation and downloadable translated output
 - Mock translation mode when no API key is provided (prepends `[target]` to text)
@@ -79,12 +81,15 @@ export TRANSLATE_BASE_URL="https://translate.thisnexus.cn"
 export AUTH_SESSION_SECRET="..."
 ```
 
+If you want translated PDF output with Chinese or other non-Latin characters, set `PDF_FONT_PATH` to a Unicode `.ttf`, `.otf`, or `.ttc` font file available on the server.
+
 ## Translation Flow
 1. Upload or drag one or more supported files to build your translation queue
 2. Choose language settings and optional font override
-3. Provide an OpenRouter API key (or rely on the `.env` value)
-4. Click **Translate** to process the queue; each download link appears as soon as it is ready
-5. Review any failures listed beneath the download list, then download the translated documents
+3. Choose any file-type-specific output mode you need for PDFs or Excel files
+4. Provide an OpenRouter API key (or rely on the `.env` value)
+5. Click **Translate** to process the queue; each download link appears as soon as it is ready
+6. Review any failures listed beneath the download list, then download the translated documents
 
 If no API key is supplied, the backend returns mock translations (`[lang] original text`) to illustrate the flow.
 
