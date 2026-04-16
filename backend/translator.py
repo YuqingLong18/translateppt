@@ -41,6 +41,9 @@ class TranslationConfig:
 class OpenRouterTranslator:
     """Wrapper around the OpenRouter chat completion endpoint."""
 
+    MAX_BATCH_ITEMS = 40
+    MAX_BATCH_CHARS = 12000
+
     def __init__(self, config: TranslationConfig):
         self.config = config
         self.api_base = settings.openrouter_api_base.rstrip("/")
@@ -54,6 +57,19 @@ class OpenRouterTranslator:
             LOGGER.warning("No OpenRouter API key provided; falling back to mock translation.")
             return [self._mock_translate(text) for text in texts]
 
+        translations: List[str] = []
+        for batch_index, batch in enumerate(self._chunk_texts(texts), start=1):
+            LOGGER.info(
+                "Submitting translation batch %s with %s segments and %s characters",
+                batch_index,
+                len(batch),
+                sum(len(item) for item in batch),
+            )
+            translations.extend(self._translate_batch(batch))
+
+        return translations
+
+    def _translate_batch(self, texts: List[str]) -> List[str]:
         payload = self._build_request_payload(texts)
         headers = {
             "Authorization": f"Bearer {self.config.api_key}",
@@ -86,9 +102,9 @@ class OpenRouterTranslator:
                 response_preview=error_preview,
             )
 
-        data = response.json()
+        data = self._decode_response_json(response)
         try:
-            message_content = data["choices"][0]["message"]["content"].strip()
+            message_content = self._extract_message_content(data)
         except (KeyError, IndexError) as exc:
             LOGGER.error(
                 "Unexpected OpenRouter response structure. model=%s response=%s",
@@ -134,6 +150,60 @@ class OpenRouterTranslator:
     def _mock_translate(self, text: str) -> str:
         target = self.config.target_lang or "translated"
         return f"[{target}] {text}"
+
+    def _chunk_texts(self, texts: List[str]) -> List[List[str]]:
+        batches: List[List[str]] = []
+        current_batch: List[str] = []
+        current_chars = 0
+
+        for text in texts:
+            text_length = len(text)
+            would_exceed_items = len(current_batch) >= self.MAX_BATCH_ITEMS
+            would_exceed_chars = current_batch and current_chars + text_length > self.MAX_BATCH_CHARS
+
+            if current_batch and (would_exceed_items or would_exceed_chars):
+                batches.append(current_batch)
+                current_batch = []
+                current_chars = 0
+
+            current_batch.append(text)
+            current_chars += text_length
+
+        if current_batch:
+            batches.append(current_batch)
+
+        return batches
+
+    def _decode_response_json(self, response: requests.Response) -> dict:
+        try:
+            return response.json()
+        except requests.exceptions.JSONDecodeError as exc:
+            preview = response.text[:1000] if response.text else ""
+            LOGGER.error(
+                "Failed to decode provider JSON response. status=%s preview=%s",
+                response.status_code,
+                preview,
+            )
+            raise TranslationError(
+                "Could not parse provider response from OpenRouter. The response was not valid JSON.",
+                provider_status=response.status_code,
+                response_preview=preview,
+            ) from exc
+
+    @staticmethod
+    def _extract_message_content(data: dict) -> str:
+        content = data["choices"][0]["message"]["content"]
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            parts: List[str] = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    parts.append(str(item.get("text", "")))
+                elif isinstance(item, str):
+                    parts.append(item)
+            return "\n".join(part for part in parts if part).strip()
+        raise KeyError("Unsupported message content format")
 
     def _extract_translations(self, message: str, expected_count: int) -> List[str]:
         candidates = []

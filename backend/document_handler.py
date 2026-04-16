@@ -486,6 +486,7 @@ class PdfHandler(DocumentHandler):
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib.units import mm
             from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.cidfonts import UnicodeCIDFont
             from reportlab.pdfbase.ttfonts import TTFont
             from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
         except ModuleNotFoundError as exc:  # pragma: no cover - depends on runtime env
@@ -504,6 +505,11 @@ class PdfHandler(DocumentHandler):
             if registered_name not in pdfmetrics.getRegisteredFontNames():
                 pdfmetrics.registerFont(TTFont(registered_name, str(font_path)))
             resolved_font_name = registered_name
+        elif self._contains_cjk_text(translations.values()):
+            cid_font_name = "STSong-Light"
+            if cid_font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(UnicodeCIDFont(cid_font_name))
+            resolved_font_name = cid_font_name
 
         styles = getSampleStyleSheet()
         body_style = ParagraphStyle(
@@ -615,6 +621,13 @@ class PdfHandler(DocumentHandler):
                     if match.is_file() and match.name.lower() == Path(name).name.lower():
                         return match
         return None
+
+    @staticmethod
+    def _contains_cjk_text(values) -> bool:
+        for value in values:
+            if re.search(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]", value or ""):
+                return True
+        return False
 
 
 def get_document_handler(path: Path) -> DocumentHandler:
