@@ -59,8 +59,8 @@
             </svg>
           </div>
           <p class="upload-text" data-i18n="upload.cta">拖拽文件到此或点击选择</p>
-          <p class="upload-subtext" data-i18n="upload.supported">支持 .pptx, .docx, .xlsx, .pdf</p>
-          <input type="file" id="file-input" accept=".pptx,.docx,.xlsx,.pdf" multiple />
+          <p class="upload-subtext" data-i18n="upload.supported">支持 .pptx, .docx, .xlsx</p>
+          <input type="file" id="file-input" accept=".pptx,.docx,.xlsx" multiple />
         </div>
         <div class="file-queue hidden" id="file-info">
           <ul id="file-queue"></ul>
@@ -108,21 +108,6 @@
               <input type="checkbox" id="side-by-side" name="side_by_side" />
               <span data-i18n="form.sideBySide">并排翻译（源文 | 译文，逐段对齐）</span>
             </label>
-          </div>
-          <div class="form-group option-group hidden" id="pdf-output-group">
-            <label data-i18n="form.pdfOutputLabel">PDF 输出格式</label>
-            <div class="option-grid">
-              <label class="radio-card">
-                <input type="radio" name="pdf_output_format" value="pdf" checked />
-                <span class="option-title" data-i18n="form.pdfOutputPdf">输出为 PDF</span>
-                <span class="option-copy" data-i18n="form.pdfOutputPdfCopy">保留 PDF 交付格式，生成翻译后的 PDF。</span>
-              </label>
-              <label class="radio-card">
-                <input type="radio" name="pdf_output_format" value="docx" />
-                <span class="option-title" data-i18n="form.pdfOutputDocx">输出为可编辑 DOCX</span>
-                <span class="option-copy" data-i18n="form.pdfOutputDocxCopy">把 PDF 中提取的文本整理到可编辑的 Word 文档中。</span>
-              </label>
-            </div>
           </div>
           <div class="form-group option-group hidden" id="xlsx-output-group">
             <label data-i18n="form.xlsxModeLabel">Excel 翻译方式</label>

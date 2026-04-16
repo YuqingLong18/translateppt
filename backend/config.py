@@ -9,7 +9,7 @@ from typing import Set, Tuple
 
 from dotenv import load_dotenv
 
-DEFAULT_EXTENSIONS = {"pptx", "docx", "xlsx", "pdf"}
+DEFAULT_EXTENSIONS = {"pptx", "docx", "xlsx"}
 
 
 def _detect_paths() -> Tuple[Path, Path]:

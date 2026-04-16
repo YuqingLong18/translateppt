@@ -15,7 +15,6 @@ const failedSummary = document.getElementById('failed-summary');
 const userStatus = document.getElementById('user-status');
 const backToNexus = document.getElementById('back-to-nexus');
 const logoutLink = document.getElementById('logout-link');
-const pdfOutputGroup = document.getElementById('pdf-output-group');
 const xlsxOutputGroup = document.getElementById('xlsx-output-group');
 
 const fontInput = document.getElementById('font-name');
@@ -328,9 +327,6 @@ async function translateFile(fileId, file) {
     side_by_side: sideBySideCheckbox.checked || false,
   };
 
-  if (extension === 'pdf') {
-    payload.pdf_output_format = getCheckedValue('pdf_output_format', 'pdf');
-  }
   if (extension === 'xlsx') {
     payload.spreadsheet_mode = getCheckedValue('spreadsheet_mode', 'in_place');
   }
@@ -370,7 +366,7 @@ function showProgress(messageKey, replacements) {
   lastProgressMessage = { key: messageKey, replacements };
   progressIndicator.classList.remove('hidden');
   refreshProgress();
-  setStatus(messageKey, replacements);
+  setStatus('status.translationHint');
 }
 
 function hideProgress() {
@@ -525,7 +521,6 @@ function setGroupVisibility(group, visible) {
 }
 
 function updateTranslationOptionVisibility() {
-  setGroupVisibility(pdfOutputGroup, queueContainsExtension('pdf'));
   setGroupVisibility(xlsxOutputGroup, queueContainsExtension('xlsx'));
 }
 

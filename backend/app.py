@@ -277,13 +277,11 @@ def register_routes(app: Flask) -> None:
         side_by_side = payload.get("side_by_side", False)
         if isinstance(side_by_side, str):
             side_by_side = side_by_side.lower() in ("true", "1", "yes")
-        pdf_output_format = (payload.get("pdf_output_format") or "pdf").strip().lower()
         spreadsheet_mode = (payload.get("spreadsheet_mode") or "in_place").strip().lower()
         api_key = (payload.get("api_key") or settings.openrouter_api_key or "").strip()
         model = settings.default_model
         translation_options = TranslationOptions(
             side_by_side=side_by_side,
-            pdf_output_format=pdf_output_format,
             spreadsheet_mode=spreadsheet_mode,
         )
 
@@ -330,9 +328,8 @@ def register_routes(app: Flask) -> None:
 
         output_id = uuid4().hex
         source_suffix = (Path(record.original_name).suffix or Path(record.path).suffix).lower()
-        output_suffix = _resolve_output_suffix(source_suffix, translation_options)
-        output_filename = f"{Path(record.original_name).stem}_{target_lang}{output_suffix}"
-        stored_name = f"{output_id}{output_suffix}"
+        output_filename = f"{Path(record.original_name).stem}_{target_lang}{source_suffix}"
+        stored_name = f"{output_id}{source_suffix}"
         output_path = Path(app.config["OUTPUT_FOLDER"]) / stored_name
         try:
             handler.apply_translations(
@@ -460,14 +457,6 @@ def _detect_language(elements: Iterable[TextElement]) -> Optional[str]:
         except LangDetectException:
             continue
     return None
-
-
-def _resolve_output_suffix(source_suffix: str, options: TranslationOptions) -> str:
-    if source_suffix == ".pdf":
-        if options.pdf_output_format == "docx":
-            return ".docx"
-        return ".pdf"
-    return source_suffix
 
 
 if __name__ == "__main__":
