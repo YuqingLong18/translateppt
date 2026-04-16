@@ -68,6 +68,16 @@
       flex-direction: column;
       gap: 1.25rem;
     }
+
+    .login-note {
+      padding: 0.9rem 1rem;
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(99, 102, 241, 0.16);
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
     
     .form-group {
       display: flex;
@@ -174,26 +184,18 @@
           </svg>
         </div>
         <h1>DocTranslate</h1>
-        <p data-i18n="login.subheading">登录以继续</p>
+        <p data-i18n="login.subheading">教师请使用 Microsoft SSO 继续</p>
       </div>
       
       <form class="login-form" id="login-form">
         <div class="error-message" id="error-message"></div>
-        
-        <div class="form-group">
-          <label for="username" data-i18n="login.usernameLabel">用户名</label>
-          <input type="text" id="username" name="username" placeholder="请输入用户名" required autocomplete="username"
-            data-i18n="login.usernamePlaceholder" data-i18n-attr="placeholder" />
+
+        <div class="login-note" data-i18n="login.teacherOnlyNote">
+          本应用仅供教师使用。请使用 THIS Nexus 的 Microsoft 账号进入 translate.thisnexus.cn。
         </div>
-        
-        <div class="form-group">
-          <label for="password" data-i18n="login.passwordLabel">密码</label>
-          <input type="password" id="password" name="password" placeholder="请输入密码" required autocomplete="current-password"
-            data-i18n="login.passwordPlaceholder" data-i18n-attr="placeholder" />
-        </div>
-        
+
         <button type="submit" class="login-button" id="login-button" data-i18n="login.button">
-          登录
+          使用 Microsoft 继续
         </button>
       </form>
       

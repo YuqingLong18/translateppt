@@ -56,11 +56,12 @@ ppt-translator/
      ```
 
 ## Authentication
-The app uses a centralized credential database for authentication. Users must log in with their username and password before accessing the translation interface. The credential database should be running separately (see `/index` project for setup).
+The app uses the shared THIS Nexus authentication cookie. Teachers sign in through Microsoft SSO on `thisnexus.cn`, and `translate.thisnexus.cn` reuses that session.
 
 - Login page: `/login`
-- Main app: `/` (requires authentication)
-- Logout: Click "Logout" link in header
+- Microsoft bootstrap route: `/api/auth/microsoft`
+- Main app: `/` (requires a valid teacher auth session)
+- Logout: the header sign-out clears both the local Flask session and the shared THIS Nexus cookie
 
 ## Running the App
 1. Start the Flask backend from the project root:
@@ -69,6 +70,14 @@ The app uses a centralized credential database for authentication. Users must lo
    flask run --reload
    ```
 2. Open the interface at [http://localhost:5000](http://localhost:5000). Static assets are served by Flask.
+
+For local shared-auth testing, also set:
+```bash
+export AUTH_BASE_URL="https://thisnexus.cn"
+export AUTH_SERVICE_BASE_URL="https://thisnexus.cn"
+export TRANSLATE_BASE_URL="https://translate.thisnexus.cn"
+export AUTH_SESSION_SECRET="..."
+```
 
 ## Translation Flow
 1. Upload or drag one or more supported files to build your translation queue

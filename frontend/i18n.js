@@ -37,17 +37,15 @@
       'queue.remove': '移除',
       'failures.heading': '无法翻译的文件：',
       'common.translationFailed': '翻译失败',
-      'login.subheading': '登录以继续',
-      'login.usernameLabel': '用户名',
-      'login.usernamePlaceholder': '请输入用户名',
-      'login.passwordLabel': '密码',
-      'login.passwordPlaceholder': '请输入密码',
-      'login.button': '登录',
-      'login.buttonWorking': '正在登录...',
+      'login.subheading': '教师请使用 Microsoft SSO 继续',
+      'login.teacherOnlyNote': '本应用仅供教师使用。请使用 THIS Nexus 的 Microsoft 账号进入 translate.thisnexus.cn。',
+      'login.button': '使用 Microsoft 继续',
+      'login.buttonWorking': '正在跳转...',
       'login.footer': '文档翻译服务',
-      'login.error.missingFields': '请输入用户名和密码',
       'login.error.connection': '网络连接错误，请重试。',
-      'login.error.invalid': '用户名或密码错误'
+      'login.error.teacherOnly': '该 Microsoft 账号无权使用文档翻译服务。',
+      'login.error.ssoFailed': 'Microsoft 登录失败，请重试。',
+      'login.error.ssoRequired': '请使用 Microsoft SSO 登录。'
     },
     en: {
       'title.main': 'DocTranslate - Document Translator',
@@ -86,17 +84,15 @@
       'queue.remove': 'Remove',
       'failures.heading': 'Unable to translate:',
       'common.translationFailed': 'Translation failed',
-      'login.subheading': 'Sign in to continue',
-      'login.usernameLabel': 'Username',
-      'login.usernamePlaceholder': 'Enter your username',
-      'login.passwordLabel': 'Password',
-      'login.passwordPlaceholder': 'Enter your password',
-      'login.button': 'Sign In',
-      'login.buttonWorking': 'Signing in...',
+      'login.subheading': 'Teachers sign in with Microsoft SSO',
+      'login.teacherOnlyNote': 'This app is for teachers only. Use your THIS Nexus Microsoft account to open translate.thisnexus.cn.',
+      'login.button': 'Continue with Microsoft',
+      'login.buttonWorking': 'Redirecting...',
       'login.footer': 'Document Translation Service',
-      'login.error.missingFields': 'Please enter both username and password',
       'login.error.connection': 'Connection error. Please try again.',
-      'login.error.invalid': 'Invalid username or password'
+      'login.error.teacherOnly': 'This Microsoft account is not allowed to use DocTranslate.',
+      'login.error.ssoFailed': 'Microsoft sign-in failed. Please try again.',
+      'login.error.ssoRequired': 'Please sign in with Microsoft SSO.'
     }
   };
 

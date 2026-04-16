@@ -62,9 +62,15 @@ class Settings:
     default_model: str = os.getenv("DEFAULT_MODEL", "anthropic/claude-3.5-sonnet")
     
     # Authentication settings
-    auth_base_url: str = os.getenv("AUTH_BASE_URL", "http://localhost:8000")
+    auth_base_url: str = os.getenv("AUTH_BASE_URL", "https://thisnexus.cn")
+    auth_service_base_url: str = os.getenv("AUTH_SERVICE_BASE_URL", os.getenv("AUTH_BASE_URL", "https://thisnexus.cn"))
+    translate_base_url: str = os.getenv("TRANSLATE_BASE_URL", "https://translate.thisnexus.cn")
+    auth_session_secret: str = os.getenv(
+        "AUTH_SESSION_SECRET",
+        "" if os.getenv("FLASK_ENV") == "production" else "local-dev-secret-change-me",
+    )
     gadget_id: str = os.getenv("GADGET_ID", "translateppt")
-    session_cookie_name: str = os.getenv("SESSION_COOKIE_NAME", "nexus_session")
+    session_cookie_name: str = os.getenv("AUTH_COOKIE_NAME", "thisnexus_session")
     credential_db_url: str = os.getenv("CREDENTIAL_DB_URL", "http://localhost:3000")
 
 

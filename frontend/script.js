@@ -50,18 +50,11 @@ async function checkAuthentication() {
     if (response.ok) {
       const data = await response.json();
       if (data.authenticated && data.username) {
-        currentUsername = data.username;
+        currentUsername = data.display_name || data.username || data.email || '';
         pendingUserStatusKey = null;
         updateAuthDisplays();
-        backToNexus.href = '#';
-        backToNexus.onclick = async (e) => {
-          e.preventDefault();
-          await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include'
-          });
-          window.location.href = '/login';
-        };
+        backToNexus.href = '/api/auth/logout';
+        backToNexus.onclick = null;
       } else {
         window.location.href = '/login';
       }

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Iterable, Optional
 from uuid import uuid4
 
-from flask import Flask, abort, jsonify, request, send_from_directory, session, redirect
+from flask import Flask, abort, jsonify, request, send_from_directory, redirect
 from langdetect import detect, LangDetectException
 from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
@@ -16,7 +16,17 @@ from werkzeug.utils import secure_filename
 from .config import settings
 from .document_handler import TextElement, get_document_handler
 from .translator import OpenRouterTranslator, TranslationConfig, TranslationError
-from .auth_middleware import require_auth, get_current_user, verify_credentials, check_session
+from .auth_middleware import (
+    build_logout_url,
+    build_microsoft_login_url,
+    check_session,
+    clear_local_session,
+    establish_local_session,
+    get_current_user,
+    get_shared_auth_session,
+    is_teacher_auth_session,
+    require_auth,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -135,6 +145,11 @@ def create_app() -> Flask:
 
 
 def register_routes(app: Flask) -> None:
+    def _normalize_redirect_path(value: str | None, default: str = "/") -> str:
+        if not value or not isinstance(value, str) or not value.startswith("/") or value.startswith("//"):
+            return default
+        return value
+
     @app.get("/favicon.ico")
     def favicon():
         """Return 204 No Content for favicon requests to avoid 404s."""
@@ -153,33 +168,47 @@ def register_routes(app: Flask) -> None:
         if check_session():
             return redirect("/")
         return app.send_static_file("login.html")
-    
+
+    @app.get("/api/auth/microsoft")
+    def microsoft_login():
+        """Bootstrap local session from the shared THIS Nexus auth cookie."""
+        redirect_path = _normalize_redirect_path(request.args.get("redirect"), "/")
+        shared_session = get_shared_auth_session()
+
+        if not shared_session:
+            return redirect(build_microsoft_login_url(redirect_path))
+
+        if not is_teacher_auth_session(shared_session):
+            return redirect("/login?error=teacher_only")
+
+        try:
+            establish_local_session(shared_session)
+            return redirect(redirect_path)
+        except Exception:
+            LOGGER.exception("Microsoft sign-in failed for translateppt")
+            clear_local_session()
+            return redirect("/login?error=login_failed")
+
     @app.post("/api/auth/login")
     def login():
-        """Handle login request."""
-        data = request.get_json(silent=True) or {}
-        username = data.get("username", "").strip()
-        password = data.get("password", "")
-        
-        if not username or not password:
-            return jsonify({"success": False, "error": "Username and password are required"}), 400
-        
-        user_info = verify_credentials(username, password)
-        
-        if user_info:
-            # Set session
-            session["authenticated"] = True
-            session["user_id"] = user_info["id"]
-            session["username"] = user_info["username"]
-            return jsonify({"success": True, "user": user_info})
-        else:
-            return jsonify({"success": False, "error": "Invalid username or password"}), 401
-    
+        """Legacy password login is disabled in favor of Microsoft SSO."""
+        return jsonify({
+            "success": False,
+            "error": "login.error.ssoRequired",
+            "redirect": "/api/auth/microsoft",
+        }), 405
+
+    @app.get("/api/auth/logout")
+    def logout_redirect():
+        """Sign out locally, then clear the shared THIS Nexus auth cookie."""
+        clear_local_session()
+        return redirect(build_logout_url("/login"))
+
     @app.post("/api/auth/logout")
     def logout():
-        """Handle logout request."""
-        session.clear()
-        return jsonify({"success": True})
+        """Return the shared logout URL for clients that still call POST."""
+        clear_local_session()
+        return jsonify({"success": True, "redirect": build_logout_url("/login")})
     
     @app.get("/api/auth/check")
     def check_auth():
@@ -347,7 +376,9 @@ def register_routes(app: Flask) -> None:
             return jsonify({
                 "authenticated": True,
                 "username": user_info.get("username"),
-                "user_type": "user"  # Simple user type for compatibility
+                "display_name": user_info.get("display_name"),
+                "email": user_info.get("email"),
+                "user_type": "teacher",
             })
         return jsonify({"authenticated": False}), 401
 

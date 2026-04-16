@@ -1,6 +1,4 @@
 const loginForm = document.getElementById('login-form');
-const usernameInput = document.getElementById('username');
-const passwordInput = document.getElementById('password');
 const loginButton = document.getElementById('login-button');
 const errorMessage = document.getElementById('error-message');
 
@@ -47,64 +45,38 @@ async function checkAuthenticationStatus() {
   }
 }
 
-async function handleLogin(event) {
-  event.preventDefault();
-
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value;
-
-  if (!username || !password) {
-    showError('login.error.missingFields');
+function readErrorFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get('error');
+  if (!error) {
     return;
   }
 
+  if (error === 'teacher_only') {
+    showError('login.error.teacherOnly');
+    return;
+  }
+
+  if (error === 'login_failed') {
+    showError('login.error.ssoFailed');
+  }
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
   loginButton.disabled = true;
   loginButtonState = 'loading';
   updateLoginButton();
   hideError();
-
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({ username, password })
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      window.location.href = '/';
-      return;
-    }
-
-    showError(data.error || 'login.error.invalid');
-    loginButton.disabled = false;
-    loginButtonState = 'idle';
-    updateLoginButton();
-  } catch (error) {
-    showError('login.error.connection');
-    loginButton.disabled = false;
-    loginButtonState = 'idle';
-    updateLoginButton();
-  }
+  window.location.href = '/api/auth/microsoft?redirect=/';
 }
 
 function initLoginForm() {
   updateLoginButton();
   checkAuthenticationStatus();
+  readErrorFromUrl();
 
   loginForm.addEventListener('submit', handleLogin);
-
-  [usernameInput, passwordInput].forEach((input) => {
-    input.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        loginForm.requestSubmit();
-      }
-    });
-  });
 }
 
 function handleLanguageChange() {
